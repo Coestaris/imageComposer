@@ -7,7 +7,10 @@ languages = [
             "help": """Actions list:
 1. 
 2. 
-3."""
+3.""",
+            "progress": "Progress:",
+            "complete": "Complete [%i / %i]",
+            "done" : "Done!"
         }
     }
 ]
