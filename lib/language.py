@@ -8,9 +8,9 @@ languages = [
 1. 
 2. 
 3.""",
-            "progress": "Progress:",
+            "progress": "Process-%i:",
             "complete": "Complete [%i / %i]",
-            "done" : "Done!"
+            "done": "Done! (in %i seconds)"
         }
     }
 ]

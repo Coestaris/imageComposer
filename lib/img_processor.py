@@ -80,6 +80,16 @@ def calc_av_color(im):
     return avcolor
 
 
+def hash_diff(hash1, hash2):
+    decoded1 = base64.b64decode(hash1)
+    decoded2 = base64.b64decode(hash2)
+    diff = 0
+    for index in range(0, len(decoded1)):
+        diff += abs(ord(decoded1[index]) - ord(decoded2[index]))
+
+    return [diff, diff / (8 * 256) * 100]
+
+
 def get_img_info(path, index):
     img = Image.open(path)
 

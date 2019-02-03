@@ -3,6 +3,10 @@ import logging
 import glob
 import os
 import json
+import multiprocessing
+import time
+
+from time import sleep
 
 import lib.img_processor
 import lib.language
@@ -30,8 +34,8 @@ def printProgressBar(iteration, total, prefix='', suffix='', decimals=1, length=
     bar = fill * filledLength + '-' * (length - filledLength)
     print('\r%s |%s| %s%% %s' % (prefix, bar, percent, suffix), end='\r')
     # Print New Line on Complete
-    if iteration == total:
-        print()
+    #if iteration == total:
+    #    print()
 
 
 def get_parameters(parameters, argv):
@@ -46,8 +50,51 @@ def get_l_value(key):
     return lib.language.getLang(defaultLang)[key]
 
 
+def send(cmd):
+    sys.stdout.write(cmd)
+    sys.stdout.flush()
+
+
+def save_cursor():
+    send('\033[s')
+    # send('\033[s')
+
+
+def restore_cursor():
+    send('\033[u')
+    # send('\033[u')
+
+
 def print_help(argv):
     print(get_l_value("help"))
+
+
+def chunk_it(seq, num):
+    avg = len(seq) / float(num)
+    out = []
+    last = 0.0
+
+    while last < len(seq):
+        out.append(seq[int(last):int(last + avg)])
+        last += avg
+
+    return out
+
+
+def create_thread(files, path, prIndex, shared):
+
+    outpath = path % (multiprocessing.current_process().name + "/%s")
+
+    try:
+        os.mkdir(path % multiprocessing.current_process().name)
+    except:
+        pass
+
+    for index, file in enumerate(files):
+        with open(outpath % str(index) + ".json", mode="w+") as f:
+            inf = lib.img_processor.get_img_info(files[index], index).to_json()
+            json.dump(inf, f)
+            shared[prIndex] = index + 1
 
 
 def create(argv):
@@ -56,16 +103,22 @@ def create(argv):
         "output": "output",
         "count": "5000",
         "offset": "0",
+        "threads": "2",
         "name_frmt": "*",
     }
+
     get_parameters(parameters, argv)
 
     input_path = "%s/%s/%s" % (os.getcwd(), parameters["input"], parameters["name_frmt"])
-    output_path = "%s/%s/%%s.json" % (os.getcwd(), parameters["output"])
+    output_path = "%s/%s/%%s" % (os.getcwd(), parameters["output"])
 
     files = glob.glob(input_path)
     count = int(parameters["count"])
     offset = int(parameters["offset"])
+    thread_count = int(parameters["threads"])
+
+    shared = multiprocessing.Array('i', [0] * thread_count)
+    counts = [0] * thread_count
 
     print(parameters)
 
@@ -74,19 +127,42 @@ def create(argv):
     except:
         pass
 
-    printProgressBar(0, count, prefix='', suffix=get_l_value("complete") % (0, count), length=50)
-    for index, file in enumerate(files, offset):
-        if index < count + offset:
-            with open(output_path % (index + offset), mode="w+") as f:
-                inf = lib.img_processor.get_img_info(files[index], index + offset).to_json()
+    threads = []
+    work = chunk_it(files[:count], thread_count)
 
-                json.dump(inf, f)
-                printProgressBar(index - offset + 1, count, prefix=get_l_value("progress"),
-                                 suffix=get_l_value("complete") % (index + 1, count), length=50)
-        else:
-            break
+    for i in range(0, thread_count):
+        threads.append(multiprocessing.Process(target=create_thread, args=[work[i], output_path, i, shared]))
+        counts[i] = len(work[i])
 
-    print(get_l_value("done"))
+    for thread in threads:
+        thread.start()
+
+    start = time.time()
+    save_cursor()
+    working = True
+    while working:
+
+        working = False
+        for index, thread in enumerate(threads):
+            if thread.is_alive():
+                working = True
+
+            max_progress = counts[index]
+            current_progress = shared[index]
+
+            printProgressBar(current_progress, max_progress, prefix=get_l_value("progress") % index,
+                             suffix=get_l_value("complete") % (current_progress, max_progress), length=50)
+
+            print()
+
+        restore_cursor()
+        sleep(0.3)
+
+    for i in range(0, thread_count):
+        print()
+
+    print(get_l_value("done") % (time.time() - start))
+
 
 def info(argv):
     pass
