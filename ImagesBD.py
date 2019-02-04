@@ -1,3 +1,6 @@
+#!/usr/bin/python3
+
+import shutil
 import sys
 import logging
 import glob
@@ -8,6 +11,7 @@ import time
 
 from time import sleep
 
+import lib.db
 import lib.img_processor
 import lib.language
 
@@ -18,24 +22,10 @@ logger = logging.getLogger(__name__)
 
 
 def printProgressBar(iteration, total, prefix='', suffix='', decimals=1, length=100, fill='█'):
-    """'
-    Call in a loop to create terminal progress bar
-    @params:
-        iteration   - Required  : current iteration (Int)
-        total       - Required  : total iterations (Int)
-        prefix      - Optional  : prefix string (Str)
-        suffix      - Optional  : suffix string (Str)
-        decimals    - Optional  : positive number of decimals in percent complete (Int)
-        length      - Optional  : character length of bar (Int)
-        fill        - Optional  : bar fill character (Str)
-    """
     percent = ("{0:." + str(decimals) + "f}").format(100 * (iteration / float(total)))
     filledLength = int(length * iteration // total)
     bar = fill * filledLength + '-' * (length - filledLength)
     print('\r%s |%s| %s%% %s' % (prefix, bar, percent, suffix), end='\r')
-    # Print New Line on Complete
-    #if iteration == total:
-    #    print()
 
 
 def get_parameters(parameters, argv):
@@ -82,7 +72,6 @@ def chunk_it(seq, num):
 
 
 def create_thread(files, path, prIndex, shared):
-
     outpath = path % (multiprocessing.current_process().name + "/%s")
 
     try:
@@ -113,6 +102,7 @@ def create(argv):
     output_path = "%s/%s/%%s" % (os.getcwd(), parameters["output"])
 
     files = glob.glob(input_path)
+
     count = int(parameters["count"])
     offset = int(parameters["offset"])
     thread_count = int(parameters["threads"])
@@ -121,6 +111,10 @@ def create(argv):
     counts = [0] * thread_count
 
     print(parameters)
+
+    if os.path.isdir(output_path % "Process-1"):
+        print(get_l_value("warn_db_exists"))
+        print()
 
     try:
         os.mkdir("%s/%s" % (os.getcwd(), parameters["output"]))
@@ -161,11 +155,81 @@ def create(argv):
     for i in range(0, thread_count):
         print()
 
-    print(get_l_value("done") % (time.time() - start))
+    print(get_l_value("done_in") % (time.time() - start))
 
 
 def info(argv):
     pass
+
+
+def clear(argv):
+    parameters = {
+        "output": "output",
+    }
+    get_parameters(parameters, argv)
+
+    key = input(get_l_value("del_conf"))
+    if key in ["y", "Y", "н", "Н"]:
+
+        path = "%s/%s" % (os.getcwd(), parameters["output"])
+
+        if not os.path.isdir(path):
+            return 0
+
+        shutil.rmtree(path)
+        print(get_l_value("done"))
+    else:
+        print(get_l_value("aborted"))
+
+    return 0
+
+
+def compare(argv):
+    parameters = {
+        "output": "output",
+        "input": "input",
+        "img": "",
+        "threshold": "0",
+    }
+    get_parameters(parameters, argv)
+
+    threshold = float(parameters["threshold"])
+
+    if parameters["img"] == "":
+        logger.error(get_l_value("err_specify_img"))
+        return 1
+
+    print(parameters, end='\n\n')
+
+    db_path = "%s/%s" % (os.getcwd(), parameters["output"])
+    path = "%s/%s/%s" % (os.getcwd(), parameters["input"], parameters["img"])
+
+    database = lib.db.load(db_path)
+    im_info = None
+
+    for info in database:
+        if info.path == path:
+            im_info = info
+            break
+
+    if im_info is None:
+        if not os.path.isfile(path):
+            logger.error(get_l_value("err_file_not_exists") % path)
+            return 1
+        info = lib.img_processor.get_img_info(path, -1)
+
+    for info in database:
+
+        diff = lib.img_processor.hash_diff(info.im_hash, im_info.im_hash)
+        if threshold != 0:
+            if diff[1] < threshold:
+                print(get_l_value("hash_diff") % (info.path, diff[1]))
+
+        else:
+            print(get_l_value("hash_diff") % (info.path, diff[1]))
+
+    print(get_l_value("done"))
+    return 0
 
 
 def main():
@@ -180,12 +244,16 @@ def main():
         return create(sys.argv)
 
     elif action == "clear":
-        pass
+        return clear(sys.argv)
+
     elif action == "help":
         print_help(sys.argv)
 
     elif action == "info":
         return info(sys.argv)
+
+    elif action == "compare":
+        return compare(sys.argv)
 
     else:
         logger.error(get_l_value("err_unknown_command").format(action))

@@ -1,16 +1,16 @@
 import base64
-import struct
+from array import array
 
 from PIL import Image
 
 
 class ImageInfo:
-    def __init__(self, path, im_hash, w, h, avcolor, fileIndex):
+    def __init__(self, path, im_hash, w, h, avcolor, file_index):
         self.path = path
         self.im_hash = im_hash
         self.w = w
         self.h = h
-        self.fileIndex = fileIndex
+        self.fileIndex = file_index
         self.avColor = avcolor
 
     def to_json(self):
@@ -20,9 +20,8 @@ class ImageInfo:
             "w": self.w,
             "h": self.h,
             "avColor": self.avColor,
-            "fileIndex" : self.fileIndex
+            "fileIndex": self.fileIndex
         }
-
 
 def to_gray(color):
     return color[0] * 299/1000 + color[1] * 587/1000 + color[2] * 114/1000
@@ -56,9 +55,8 @@ def calc_hash(im):
     for index, bit in enumerate(bits):
         bytes[index // 8] = bytes[index // 8] | (bit << index % 8)
 
-    string = "".join([chr(x) for x in bytes])
-
-    data_bytes = string.encode("utf-8")
+    #string = "".join([chr(x) for x in bytes])
+    data_bytes = array('B', bytes) #string.encode("utf-8")
 
     return base64.b64encode(data_bytes)
 
@@ -83,9 +81,10 @@ def calc_av_color(im):
 def hash_diff(hash1, hash2):
     decoded1 = base64.b64decode(hash1)
     decoded2 = base64.b64decode(hash2)
+
     diff = 0
-    for index in range(0, len(decoded1)):
-        diff += abs(ord(decoded1[index]) - ord(decoded2[index]))
+    for index in range(1, len(decoded1)):
+        diff += abs(decoded1[index] - decoded2[index])
 
     return [diff, diff / (8 * 256) * 100]
 
