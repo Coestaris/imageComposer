@@ -18,7 +18,9 @@ languages = [
             "warn_db_exists": "Warning! Some database already exists. It may be overlapped",
             "err_specify_img": "You must specify some image to compare with DB (img=<some filename>)",
             "err_file_not_exists": "Specified file \"%s\" doesnt exist",
-            "hash_diff": "%s: %3.2f difference"
+            "hash_diff": "%s: %3.2f difference",
+            "found_copy": "Found copy. [%s] is copy of [%s] (diff = %f)",
+            "loaded_bd": "Load %i database items"
         }
     }
 ]

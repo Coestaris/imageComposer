@@ -1,5 +1,6 @@
 #!/usr/bin/python3
-
+import itertools
+import operator
 import shutil
 import sys
 import logging
@@ -103,6 +104,8 @@ def create(argv):
 
     files = glob.glob(input_path)
 
+    files.sort()
+
     count = int(parameters["count"])
     offset = int(parameters["offset"])
     thread_count = int(parameters["threads"])
@@ -205,6 +208,10 @@ def compare(argv):
     path = "%s/%s/%s" % (os.getcwd(), parameters["input"], parameters["img"])
 
     database = lib.db.load(db_path)
+    database.sort(key=operator.itemgetter('path'))
+
+    logger.info(get_l_value("loaded_bd") % len(database))
+
     im_info = None
 
     for info in database:
@@ -216,7 +223,7 @@ def compare(argv):
         if not os.path.isfile(path):
             logger.error(get_l_value("err_file_not_exists") % path)
             return 1
-        info = lib.img_processor.get_img_info(path, -1)
+        im_info = lib.img_processor.get_img_info(path, -1)
 
     for info in database:
 
@@ -229,6 +236,42 @@ def compare(argv):
             print(get_l_value("hash_diff") % (info.path, diff[1]))
 
     print(get_l_value("done"))
+    return 0
+
+
+def antiboyan(argv):
+    parameters = {
+        "output": "output",
+        "input": "input",
+        "action": "warn",  # remove
+        "threshold": "6",
+    }
+    get_parameters(parameters, argv)
+    print(parameters)
+
+    threshold = float(parameters["threshold"])
+
+    db_path = "%s/%s" % (os.getcwd(), parameters["output"])
+
+    database = lib.db.load(db_path)
+    database.sort(key=lambda k: k.path)
+
+    logger.info(get_l_value("loaded_bd") % len(database))
+
+    start = time.time()
+    for item1, item2 in itertools.combinations(database, 2):
+
+            diff = lib.img_processor.hash_diff(item1.im_hash, item2.im_hash)
+            if diff[1] <= threshold:
+                if parameters["action"] == "warn":
+                    print(get_l_value("found_copy") % (
+                        os.path.basename(item1.path),
+                        os.path.basename(item2.path),
+                        diff[1]
+                    ))
+
+    print(get_l_value("done_in") % (time.time() - start))
+
     return 0
 
 
@@ -248,6 +291,9 @@ def main():
 
     elif action == "help":
         print_help(sys.argv)
+
+    elif action == "antiboyan":
+        antiboyan(sys.argv)
 
     elif action == "info":
         return info(sys.argv)
