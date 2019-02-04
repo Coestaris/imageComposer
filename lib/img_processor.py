@@ -23,8 +23,12 @@ class ImageInfo:
             "fileIndex": self.fileIndex
         }
 
+
 def to_gray(color):
-    return color[0] * 299/1000 + color[1] * 587/1000 + color[2] * 114/1000
+    if isinstance(color, int):
+        return color
+    else:
+        return color[0] * 299/1000 + color[1] * 587/1000 + color[2] * 114/1000
 
 
 def calc_hash(im):
@@ -65,11 +69,18 @@ def calc_av_color(im):
     avcolor = [0, 0, 0]
     pixels = list(im.getdata())
 
-    for pixel in pixels:
-        r, g, b = pixel
-        avcolor[0] += r
-        avcolor[1] += g
-        avcolor[2] += b
+    if isinstance(pixels[0], int):
+        for pixel in pixels:
+            avcolor[0] += pixel
+            avcolor[1] += pixel
+            avcolor[2] += pixel
+
+    else:
+        for pixel in pixels:
+            r, g, b = pixel
+            avcolor[0] += r
+            avcolor[1] += g
+            avcolor[2] += b
 
     pixelcount = im.width * im.height
     avcolor[0] /= pixelcount
